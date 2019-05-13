@@ -6,6 +6,8 @@ import (
 	"log"
 	"os/exec"
 	"strings"
+	"sync"
+	"time"
 
 	c "github.com/jroimartin/gocui"
 	"github.com/nsf/termbox-go"
@@ -133,15 +135,22 @@ type Consola struct {
 	g      *c.Gui
 	v      *c.View
 	name   string
+	err    error
 	x0     int
 	y0     int
 	x1     int
 	y1     int
+	run    bool
 }
 
 //NewConsola NewConsola
 func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int) *Consola {
-	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1}
+	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, run: true}
+}
+
+//Error error
+func (s *Consola) Error() error {
+	return s.err
 }
 
 //Stop stop
@@ -152,11 +161,16 @@ func (s *Consola) Stop() error {
 //Start start
 func (s *Consola) Start() error {
 	g := s.g
+	s.run = true
+	s.err = nil
+	g.SetCurrentView(s.name + "View")
 	if err := g.DeleteView(s.name + "View"); err != nil && err != c.ErrUnknownView {
+		s.err = err
 		return err
 	}
 	if v, err := g.SetView(s.name+"View", s.x0, s.y0, s.x1, s.y1-3); err != nil {
 		if err != c.ErrUnknownView {
+			s.err = err
 			return err
 		}
 		s.v = v
@@ -168,10 +182,13 @@ func (s *Consola) Start() error {
 			s.stderr, _ = cmd.StderrPipe()
 			s.stdin, _ = cmd.StdinPipe()
 			s.cmd = cmd
-			cmd.Start()
+			s.run = true
+
+			wg := sync.WaitGroup{}
+			wg.Add(3)
 
 			go func(s *Consola, out chan []byte) {
-				for {
+				for s.run {
 					b, ok := <-out
 					if !ok {
 						return
@@ -179,10 +196,11 @@ func (s *Consola) Start() error {
 					s.v.Write(b)
 					termbox.Interrupt()
 				}
+				wg.Done()
 			}(s, out)
 
 			go func(s *Consola, out chan []byte) {
-				for true {
+				for s.run {
 					b := make([]byte, 100)
 					cont, err := s.stdout.Read(b)
 					if err != nil {
@@ -192,9 +210,10 @@ func (s *Consola) Start() error {
 						out <- b[0:cont]
 					}
 				}
+				wg.Done()
 			}(s, out)
 			go func(s *Consola, out chan []byte) {
-				for true {
+				for s.run {
 					b := make([]byte, 100)
 					cont, err := s.stderr.Read(b)
 					if err != nil {
@@ -204,8 +223,19 @@ func (s *Consola) Start() error {
 						out <- b[0:cont]
 					}
 				}
+				wg.Done()
 			}(s, out)
+			s.err = cmd.Start()
+			if s.err != nil {
+				return
+			}
 			cmd.Wait()
+			s.run = false
+			s.stderr.Close()
+			s.stdout.Close()
+			s.stdin.Close()
+			wg.Wait()
+			s.err = nil
 			close(out)
 		}(s)
 	}
@@ -213,7 +243,8 @@ func (s *Consola) Start() error {
 	iv, err := g.SetView(s.name+"Input", s.x0, s.y1-2, s.x1, s.y1)
 	if err != nil && err != c.ErrUnknownView {
 		log.Println("Failed to create input view:", err)
-		return nil
+		s.err = err
+		return err
 	}
 	iv.Title = "Input"
 	iv.FgColor = c.ColorYellow
@@ -222,7 +253,8 @@ func (s *Consola) Start() error {
 	err = iv.SetCursor(0, 0)
 	if err != nil {
 		log.Println("Failed to set cursor:", err)
-		return nil
+		s.err = err
+		return err
 	}
 
 	// Make the enter key copy the input to the output.
@@ -240,7 +272,12 @@ func (s *Consola) Start() error {
 			s.stdin.Write([]byte(iv.Buffer()))
 		} else {
 			s.Stop()
+			time.Sleep(300 * time.Millisecond)
 			s.Start()
+			if s.Error() != nil {
+				fmt.Println(s.Error())
+			}
+
 		}
 
 		if e != nil {
@@ -257,7 +294,9 @@ func (s *Consola) Start() error {
 	_, err = g.SetCurrentView(s.name + "Input")
 	if err != nil {
 		log.Println("Cannot set focus to input view:", err)
+		s.err = err
+		return err
 	}
 
-	return nil
+	return s.err
 }
