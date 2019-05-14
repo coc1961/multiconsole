@@ -179,7 +179,7 @@ func (s *Consola) Start() error {
 			return err
 		}
 		s.v = v
-		out := make(chan []byte)
+		out := make(chan []byte, 10000)
 		go func(s *Consola) {
 			v.Autoscroll = true
 			cmd := exec.Command("sh", "-c", "/bin/sh", "--login")
@@ -211,7 +211,7 @@ func (s *Consola) Start() error {
 					if err != nil {
 						break
 					}
-					if cont > 0 && b != nil && len(b) >= cont {
+					if cont > 0 {
 						out <- b[0:cont]
 					}
 				}
@@ -224,7 +224,7 @@ func (s *Consola) Start() error {
 					if err != nil {
 						break
 					}
-					if cont > 0 && b != nil && len(b) >= cont {
+					if cont > 0 {
 						out <- b[0:cont]
 					}
 				}
