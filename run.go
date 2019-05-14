@@ -148,6 +148,11 @@ func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int) *Consola {
 	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, run: true}
 }
 
+//Execute Execute command
+func (s *Consola) Execute(cmd string) (int, error) {
+	return s.stdin.Write([]byte(cmd))
+}
+
 //Error error
 func (s *Consola) Error() error {
 	return s.err
@@ -177,7 +182,7 @@ func (s *Consola) Start() error {
 		out := make(chan []byte)
 		go func(s *Consola) {
 			v.Autoscroll = true
-			cmd := exec.Command("sh", "-c", "/bin/sh")
+			cmd := exec.Command("sh", "-c", "/bin/sh", "--login")
 			s.stdout, _ = cmd.StdoutPipe()
 			s.stderr, _ = cmd.StderrPipe()
 			s.stdin, _ = cmd.StdinPipe()
@@ -201,7 +206,7 @@ func (s *Consola) Start() error {
 
 			go func(s *Consola, out chan []byte) {
 				for s.run {
-					b := make([]byte, 100)
+					b := make([]byte, 10000)
 					cont, err := s.stdout.Read(b)
 					if err != nil {
 						break
@@ -214,7 +219,7 @@ func (s *Consola) Start() error {
 			}(s, out)
 			go func(s *Consola, out chan []byte) {
 				for s.run {
-					b := make([]byte, 100)
+					b := make([]byte, 10000)
 					cont, err := s.stderr.Read(b)
 					if err != nil {
 						break
@@ -269,7 +274,7 @@ func (s *Consola) Start() error {
 		_, e = fmt.Fprint(ov, iv.Buffer())
 
 		if strings.Trim(iv.Buffer(), " ") != "exit\n" {
-			s.stdin.Write([]byte(iv.Buffer()))
+			s.Execute(iv.Buffer())
 		} else {
 			s.Stop()
 			time.Sleep(300 * time.Millisecond)
