@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -14,18 +15,19 @@ import (
 )
 
 func main() {
-	cv := NewConsoleView()
+	cv := NewConsoleView(os.Args[1:])
 	cv.Start()
 }
 
 //NewConsoleView NewConsoleView
-func NewConsoleView() *ConsoleView {
-	cv := ConsoleView{pri: true, current: 2, maxConsole: 4}
+func NewConsoleView(cmd []string) *ConsoleView {
+	cv := ConsoleView{pri: true, current: 2, maxConsole: 4, cmd: cmd}
 	return &cv
 }
 
 //ConsoleView ConsoleView
 type ConsoleView struct {
+	cmd        []string
 	pri        bool
 	current    int
 	g          *c.Gui
@@ -91,28 +93,44 @@ func (cv *ConsoleView) layout(g *c.Gui) error {
 	}
 
 	{
-		cmd1 := NewConsola(g, "cmd4", (maxX/2)+1, (maxY/2)+1, maxX-1, maxY-2)
+		var cmd *string
+		if len(cv.cmd) > 3 {
+			cmd = &cv.cmd[3]
+		}
+		cmd1 := NewConsola(g, "cmd4", (maxX/2)+1, (maxY/2)+1, maxX-1, maxY-2, cmd)
 		err := cmd1.Start()
 		if err != nil {
 			fmt.Println(err)
 		}
 	}
 	{
-		cmd1 := NewConsola(g, "cmd3", 0, (maxY/2)+1, (maxX/2)-1, maxY-2)
+		var cmd *string
+		if len(cv.cmd) > 2 {
+			cmd = &cv.cmd[2]
+		}
+		cmd1 := NewConsola(g, "cmd3", 0, (maxY/2)+1, (maxX/2)-1, maxY-2, cmd)
 		err := cmd1.Start()
 		if err != nil {
 			fmt.Println(err)
 		}
 	}
 	{
-		cmd1 := NewConsola(g, "cmd2", (maxX/2)+1, 2, maxX-1, maxY/2)
+		var cmd *string
+		if len(cv.cmd) > 1 {
+			cmd = &cv.cmd[1]
+		}
+		cmd1 := NewConsola(g, "cmd2", (maxX/2)+1, 2, maxX-1, maxY/2, cmd)
 		err := cmd1.Start()
 		if err != nil {
 			fmt.Println(err)
 		}
 	}
 	{
-		cmd1 := NewConsola(g, "cmd1", 0, 2, (maxX/2)-1, maxY/2)
+		var cmd *string
+		if len(cv.cmd) > 0 {
+			cmd = &cv.cmd[0]
+		}
+		cmd1 := NewConsola(g, "cmd1", 0, 2, (maxX/2)-1, maxY/2, cmd)
 		err := cmd1.Start()
 		if err != nil {
 			fmt.Println(err)
@@ -128,24 +146,25 @@ func (cv *ConsoleView) quit(g *c.Gui, v *c.View) error {
 
 //Consola consola
 type Consola struct {
-	stdout io.ReadCloser
-	stderr io.ReadCloser
-	stdin  io.WriteCloser
-	cmd    *exec.Cmd
-	g      *c.Gui
-	v      *c.View
-	name   string
-	err    error
-	x0     int
-	y0     int
-	x1     int
-	y1     int
-	run    bool
+	stdout  io.ReadCloser
+	stderr  io.ReadCloser
+	stdin   io.WriteCloser
+	command *string
+	cmd     *exec.Cmd
+	g       *c.Gui
+	v       *c.View
+	name    string
+	err     error
+	x0      int
+	y0      int
+	x1      int
+	y1      int
+	run     bool
 }
 
 //NewConsola NewConsola
-func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int) *Consola {
-	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, run: true}
+func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string) *Consola {
+	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, run: true, command: cmd}
 }
 
 //Execute Execute command
@@ -160,7 +179,26 @@ func (s *Consola) Error() error {
 
 //Stop stop
 func (s *Consola) Stop() error {
-	return s.cmd.Process.Kill()
+	ret := s.cmd.Process.Kill()
+	/*
+		for s.run {
+			<-time.After(100 * time.Millisecond)
+		}
+	*/
+	return ret
+}
+
+func (s *Consola) write(b []byte) (int, error) {
+	go func() {
+		if r := recover(); r != nil {
+			log.Println(r)
+			return
+		}
+	}()
+	if !s.run {
+		return 0, nil
+	}
+	return s.v.Write(b)
 }
 
 //Start start
@@ -198,7 +236,10 @@ func (s *Consola) Start() error {
 					if !ok {
 						return
 					}
-					s.v.Write(b)
+					_, err := s.write(b)
+					if err != nil {
+						continue
+					}
 					termbox.Interrupt()
 				}
 				wg.Done()
@@ -234,14 +275,23 @@ func (s *Consola) Start() error {
 			if s.err != nil {
 				return
 			}
+			if s.command != nil {
+				go func() {
+					<-time.After(1 * time.Second)
+					s.Execute(*s.command)
+					s.Execute("\n")
+					s.command = nil
+				}()
+			}
+
 			cmd.Wait()
 			s.run = false
 			s.stderr.Close()
 			s.stdout.Close()
 			s.stdin.Close()
 			wg.Wait()
-			s.err = nil
 			close(out)
+			s.err = nil
 		}(s)
 	}
 
