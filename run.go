@@ -204,7 +204,6 @@ func (s *Consola) write(b []byte) (int, error) {
 //Start start
 func (s *Consola) Start() error {
 	g := s.g
-	s.run = true
 	s.err = nil
 	g.SetCurrentView(s.name + "View")
 	if err := g.DeleteView(s.name + "View"); err != nil && err != c.ErrUnknownView {
@@ -232,17 +231,25 @@ func (s *Consola) Start() error {
 
 			go func(s *Consola, out chan []byte) {
 				for s.run {
-					b, ok := <-out
-					if !ok {
-						return
+
+					select {
+					case b, ok := <-out:
+						if !ok {
+							break
+						}
+						_, err := s.write(b)
+						if err != nil {
+							break
+						}
+						termbox.Interrupt()
+					case <-time.After(500 * time.Millisecond):
+						if s.run {
+							//fmt.Print(".")
+						}
 					}
-					_, err := s.write(b)
-					if err != nil {
-						continue
-					}
-					termbox.Interrupt()
 				}
 				wg.Done()
+				//fmt.Print("Slgo1 ")
 			}(s, out)
 
 			go func(s *Consola, out chan []byte) {
@@ -257,6 +264,7 @@ func (s *Consola) Start() error {
 					}
 				}
 				wg.Done()
+				//fmt.Print("Slgo2 ")
 			}(s, out)
 			go func(s *Consola, out chan []byte) {
 				for s.run {
@@ -270,6 +278,7 @@ func (s *Consola) Start() error {
 					}
 				}
 				wg.Done()
+				//fmt.Print("Slgo3 ")
 			}(s, out)
 			s.err = cmd.Start()
 			if s.err != nil {
@@ -289,8 +298,12 @@ func (s *Consola) Start() error {
 			s.stderr.Close()
 			s.stdout.Close()
 			s.stdin.Close()
+			//fmt.Println("Anter Wait")
+			s.run = false
 			wg.Wait()
+			//fmt.Println("Despues Wait")
 			close(out)
+			s.run = true
 			s.err = nil
 		}(s)
 	}
