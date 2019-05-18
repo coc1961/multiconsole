@@ -2,14 +2,12 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/coc1961/multiconsole/command"
 	c "github.com/jroimartin/gocui"
 	"github.com/nsf/termbox-go"
 )
@@ -146,45 +144,35 @@ func (cv *ConsoleView) quit(g *c.Gui, v *c.View) error {
 
 //Consola consola
 type Consola struct {
-	stdout  io.ReadCloser
-	stderr  io.ReadCloser
-	stdin   io.WriteCloser
 	command *string
-	cmd     *exec.Cmd
+	cmd     *command.Command
 	g       *c.Gui
 	v       *c.View
 	name    string
-	err     error
 	x0      int
 	y0      int
 	x1      int
 	y1      int
-	run     bool
 }
 
 //NewConsola NewConsola
 func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string) *Consola {
-	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, run: true, command: cmd}
+	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, command: cmd}
 }
 
 //Execute Execute command
 func (s *Consola) Execute(cmd string) (int, error) {
-	return s.stdin.Write([]byte(cmd))
+	return s.cmd.Execute(cmd)
 }
 
 //Error error
 func (s *Consola) Error() error {
-	return s.err
+	return s.cmd.Error()
 }
 
 //Stop stop
 func (s *Consola) Stop() error {
-	ret := s.cmd.Process.Kill()
-	/*
-		for s.run {
-			<-time.After(100 * time.Millisecond)
-		}
-	*/
+	ret := s.cmd.Stop()
 	return ret
 }
 
@@ -195,7 +183,7 @@ func (s *Consola) write(b []byte) (int, error) {
 			return
 		}
 	}()
-	if !s.run {
+	if !s.cmd.IsRun() {
 		return 0, nil
 	}
 	return s.v.Write(b)
@@ -204,114 +192,54 @@ func (s *Consola) write(b []byte) (int, error) {
 //Start start
 func (s *Consola) Start() error {
 	g := s.g
-	s.err = nil
+	s.cmd = command.NewCommand(s.command)
+	s.command = nil
 	g.SetCurrentView(s.name + "View")
 	if err := g.DeleteView(s.name + "View"); err != nil && err != c.ErrUnknownView {
-		s.err = err
 		return err
 	}
 	if v, err := g.SetView(s.name+"View", s.x0, s.y0, s.x1, s.y1-3); err != nil {
 		if err != c.ErrUnknownView {
-			s.err = err
 			return err
 		}
 		s.v = v
-		out := make(chan []byte, 10000)
 		go func(s *Consola) {
 			v.Autoscroll = true
-			cmd := exec.Command("sh", "-c", "/bin/sh", "--login")
-			s.stdout, _ = cmd.StdoutPipe()
-			s.stderr, _ = cmd.StderrPipe()
-			s.stdin, _ = cmd.StdinPipe()
-			s.cmd = cmd
-			s.run = true
 
-			wg := sync.WaitGroup{}
-			wg.Add(3)
+			comm := s.cmd
 
-			go func(s *Consola, out chan []byte) {
-				for s.run {
-
-					select {
-					case b, ok := <-out:
-						if !ok {
-							break
-						}
-						_, err := s.write(b)
-						if err != nil {
-							break
-						}
-						termbox.Interrupt()
-					case <-time.After(500 * time.Millisecond):
-						if s.run {
-							//fmt.Print(".")
-						}
+			out0, out1 := comm.Start()
+			for s.cmd.IsRun() {
+				select {
+				case b, ok := <-out0:
+					if !ok {
+						break
 					}
-				}
-				wg.Done()
-				//fmt.Print("Slgo1 ")
-			}(s, out)
-
-			go func(s *Consola, out chan []byte) {
-				for s.run {
-					b := make([]byte, 10000)
-					cont, err := s.stdout.Read(b)
+					_, err := s.write(b)
 					if err != nil {
 						break
 					}
-					if cont > 0 {
-						out <- b[0:cont]
+					termbox.Interrupt()
+				case b, ok := <-out1:
+					if !ok {
+						break
 					}
-				}
-				wg.Done()
-				//fmt.Print("Slgo2 ")
-			}(s, out)
-			go func(s *Consola, out chan []byte) {
-				for s.run {
-					b := make([]byte, 10000)
-					cont, err := s.stderr.Read(b)
+					_, err := s.write(b)
 					if err != nil {
 						break
 					}
-					if cont > 0 {
-						out <- b[0:cont]
-					}
+					termbox.Interrupt()
+				case <-time.After(500 * time.Millisecond):
+					termbox.Interrupt()
 				}
-				wg.Done()
-				//fmt.Print("Slgo3 ")
-			}(s, out)
-			s.err = cmd.Start()
-			if s.err != nil {
-				return
 			}
-			if s.command != nil {
-				go func() {
-					<-time.After(1 * time.Second)
-					s.Execute(*s.command)
-					s.Execute("\n")
-					s.command = nil
-				}()
-			}
-
-			cmd.Wait()
-			s.run = false
-			s.stderr.Close()
-			s.stdout.Close()
-			s.stdin.Close()
-			//fmt.Println("Anter Wait")
-			s.run = false
-			wg.Wait()
-			//fmt.Println("Despues Wait")
-			close(out)
-			s.run = true
-			s.err = nil
+			//fmt.Print("SALGO0 ")
 		}(s)
 	}
 
 	iv, err := g.SetView(s.name+"Input", s.x0, s.y1-2, s.x1, s.y1)
 	if err != nil && err != c.ErrUnknownView {
 		log.Println("Failed to create input view:", err)
-		s.err = err
 		return err
 	}
 	iv.Title = "Input"
@@ -321,7 +249,6 @@ func (s *Consola) Start() error {
 	err = iv.SetCursor(0, 0)
 	if err != nil {
 		log.Println("Failed to set cursor:", err)
-		s.err = err
 		return err
 	}
 
@@ -362,9 +289,8 @@ func (s *Consola) Start() error {
 	_, err = g.SetCurrentView(s.name + "Input")
 	if err != nil {
 		log.Println("Cannot set focus to input view:", err)
-		s.err = err
 		return err
 	}
 
-	return s.err
+	return s.Error()
 }
