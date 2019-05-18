@@ -2,7 +2,6 @@ package command
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os/exec"
 	"sync"
@@ -29,9 +28,7 @@ type Command struct {
 func (c *Command) Stop() error {
 	c.run = false
 	c.command = nil
-	c.Execute("exit\n")
 	ret := c.cmd.Process.Kill()
-	time.Sleep(300 * time.Millisecond)
 	return ret
 }
 
@@ -41,17 +38,20 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 	out0 := make(chan []byte, 1)
 	out1 := make(chan []byte, 1)
 	go func(c *Command) {
-
 		cmd := exec.Command("sh", "-c", "/bin/sh", "--login")
 		c.stdout, _ = cmd.StdoutPipe()
 		c.stderr, _ = cmd.StderrPipe()
 		c.stdin, _ = cmd.StdinPipe()
 		c.cmd = cmd
+		defer c.stdout.Close()
+		defer c.stderr.Close()
+		defer c.stdin.Close()
 
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 
 		go func(c *Command, out chan<- []byte) {
+			wgl := sync.WaitGroup{}
 			for c.run {
 				b := make([]byte, 10000)
 				cont, err := c.stdout.Read(b)
@@ -59,14 +59,27 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 					break
 				}
 				if cont > 0 {
-					out <- b[0:cont]
+					b1 := make([]byte, cont)
+					copy(b1, b[0:cont])
+					wgl.Add(1)
+					go func(b []byte) {
+						select {
+						case out <- b:
+							wgl.Done()
+						case <-time.After(10 * time.Millisecond):
+							wgl.Done()
+						}
+					}(b1)
 				}
 			}
 			wg.Done()
+			wgl.Wait()
 			close(out)
+			//fmt.Print("SalgoHilo1 ")
 		}(c, out0)
 
 		go func(c *Command, out chan<- []byte) {
+			wgl := sync.WaitGroup{}
 			for c.run {
 				b := make([]byte, 10000)
 				cont, err := c.stderr.Read(b)
@@ -74,11 +87,23 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 					break
 				}
 				if cont > 0 {
-					out <- b[0:cont]
+					b1 := make([]byte, cont)
+					copy(b1, b[0:cont])
+					wgl.Add(1)
+					go func(b []byte) {
+						select {
+						case out <- b:
+							wgl.Done()
+						case <-time.After(10 * time.Millisecond):
+							wgl.Done()
+						}
+					}(b1)
 				}
 			}
 			wg.Done()
+			wgl.Wait()
 			close(out)
+			//fmt.Print("SalgoHilo2 ")
 		}(c, out1)
 
 		c.err = cmd.Start()
@@ -95,13 +120,13 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 		}
 
 		cmd.Wait()
+		//fmt.Print("SALGOCmd ")
 		c.run = false
-		c.stderr.Close()
-		c.stdout.Close()
-		c.stdin.Close()
 		wg.Wait()
+		//close(out0)
+		//close(out1)
 		c.err = nil
-		fmt.Print("SALGO1 ")
+		//fmt.Print("SALGO1 ")
 
 	}(c)
 	return out0, out1

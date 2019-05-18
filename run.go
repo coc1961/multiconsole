@@ -203,48 +203,37 @@ func (s *Consola) Start() error {
 			return err
 		}
 		s.v = v
-		//wg := sync.WaitGroup{}
-		//wg.Add(1)
 		go func(s *Consola) {
 			v.Autoscroll = true
 
 			comm := s.cmd
 
 			out0, out1 := comm.Start()
-			go func(s *Consola, out chan []byte, out1 chan []byte) {
-				for s.cmd.IsRun() {
-
-					select {
-					case b, ok := <-out:
-						if !ok {
-							break
-						}
-						_, err := s.write(b)
-						if err != nil {
-							break
-						}
-						termbox.Interrupt()
-					case b, ok := <-out1:
-						if !ok {
-							break
-						}
-						_, err := s.write(b)
-						if err != nil {
-							break
-						}
-						termbox.Interrupt()
-					case <-time.After(500 * time.Millisecond):
-						termbox.Interrupt()
+			for s.cmd.IsRun() {
+				select {
+				case b, ok := <-out0:
+					if !ok {
+						break
 					}
+					_, err := s.write(b)
+					if err != nil {
+						break
+					}
+					termbox.Interrupt()
+				case b, ok := <-out1:
+					if !ok {
+						break
+					}
+					_, err := s.write(b)
+					if err != nil {
+						break
+					}
+					termbox.Interrupt()
+				case <-time.After(500 * time.Millisecond):
+					termbox.Interrupt()
 				}
-				//wg.Done()
-			}(s, out0, out1)
-
-			for comm.IsRun() {
-				<-time.After(500 * time.Microsecond)
 			}
-			//wg.Wait()
-			fmt.Print("SALGO0 ")
+			//fmt.Print("SALGO0 ")
 		}(s)
 	}
 
