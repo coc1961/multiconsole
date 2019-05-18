@@ -193,11 +193,55 @@ func (s *Consola) write(b []byte) (int, error) {
 	return s.v.Write(b)
 }
 
+func (s *Consola) startCommand() {
+	go func(s *Consola) {
+		s.v.Autoscroll = true
+
+		comm := s.cmd
+
+		out0, out1 := comm.Start()
+		for s.cmd.IsRun() {
+			select {
+			case b, ok := <-out0:
+				if !ok {
+					break
+				}
+				_, err := s.write(b)
+				if err != nil {
+					break
+				}
+				termbox.Interrupt()
+			case b, ok := <-out1:
+				if !ok {
+					break
+				}
+				_, err := s.write(b)
+				if err != nil {
+					break
+				}
+				termbox.Interrupt()
+			case <-time.After(500 * time.Millisecond):
+				termbox.Interrupt()
+			}
+		}
+		fmt.Print("SALGO0 ")
+	}(s)
+
+}
+
 //Start start
 func (s *Consola) Start() error {
 	g := s.g
 	s.cmd = command.NewCommand(s.command)
 	s.command = nil
+
+	if s.v != nil {
+		s.v.Clear()
+		s.startCommand()
+		s.v.Clear()
+		return nil
+	}
+
 	g.SetCurrentView(s.name + "View")
 	if err := g.DeleteView(s.name + "View"); err != nil && err != c.ErrUnknownView {
 		return err
@@ -207,38 +251,7 @@ func (s *Consola) Start() error {
 			return err
 		}
 		s.v = v
-		go func(s *Consola) {
-			v.Autoscroll = true
-
-			comm := s.cmd
-
-			out0, out1 := comm.Start()
-			for s.cmd.IsRun() {
-				select {
-				case b, ok := <-out0:
-					if !ok {
-						break
-					}
-					_, err := s.write(b)
-					if err != nil {
-						break
-					}
-					termbox.Interrupt()
-				case b, ok := <-out1:
-					if !ok {
-						break
-					}
-					_, err := s.write(b)
-					if err != nil {
-						break
-					}
-					termbox.Interrupt()
-				case <-time.After(500 * time.Millisecond):
-					termbox.Interrupt()
-				}
-			}
-			//fmt.Print("SALGO0 ")
-		}(s)
+		s.startCommand()
 	}
 
 	iv, err := g.SetView(s.name+"Input", s.x0, s.y1-2, s.x1, s.y1)
