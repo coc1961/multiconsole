@@ -220,11 +220,12 @@ func (s *Consola) startCommand() {
 					break
 				}
 				termbox.Interrupt()
-			case <-time.After(500 * time.Millisecond):
+			case <-time.After(100 * time.Millisecond):
 				termbox.Interrupt()
 			}
 		}
-		fmt.Print("SALGO0 ")
+		s.v.Clear()
+		//fmt.Print("SALGO0 ")
 	}(s)
 
 }
@@ -236,9 +237,7 @@ func (s *Consola) Start() error {
 	s.command = nil
 
 	if s.v != nil {
-		s.v.Clear()
 		s.startCommand()
-		s.v.Clear()
 		return nil
 	}
 
