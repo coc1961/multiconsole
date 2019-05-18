@@ -2,6 +2,7 @@ package command
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"sync"
@@ -22,19 +23,29 @@ type Command struct {
 	cmd     *exec.Cmd
 	err     error
 	run     bool
+	running bool
 }
 
 //Stop stop
 func (c *Command) Stop() error {
 	c.run = false
 	c.command = nil
+	c.stdout = mockStdout()
+	c.stderr = mockStdout()
+	c.stdin = mockStdout()
+
 	ret := c.cmd.Process.Kill()
+	for c.IsRunning() {
+		fmt.Print(".")
+		<-time.After(time.Millisecond * 200)
+	}
 	return ret
 }
 
 //Start start
 func (c *Command) Start() (chan []byte, chan []byte) {
 	c.run = true
+	c.running = true
 	out0 := make(chan []byte, 1)
 	out1 := make(chan []byte, 1)
 	go func(c *Command) {
@@ -43,9 +54,11 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 		c.stderr, _ = cmd.StderrPipe()
 		c.stdin, _ = cmd.StdinPipe()
 		c.cmd = cmd
-		defer c.stdout.Close()
-		defer c.stderr.Close()
-		defer c.stdin.Close()
+		defer func(stdout io.ReadCloser, stderr io.ReadCloser, stdin io.WriteCloser) {
+			stdout.Close()
+			stderr.Close()
+			stdin.Close()
+		}(c.stdout, c.stderr, c.stdin)
 
 		wg := sync.WaitGroup{}
 		wg.Add(2)
@@ -122,19 +135,41 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 		cmd.Wait()
 		//fmt.Print("SALGOCmd ")
 		c.run = false
+
 		wg.Wait()
-		//close(out0)
-		//close(out1)
 		c.err = nil
+		c.running = false
+
 		//fmt.Print("SALGO1 ")
 
 	}(c)
 	return out0, out1
 }
 
+type mocStd int
+
+func (m mocStd) Read(p []byte) (n int, err error) {
+	fmt.Print(".")
+	return 0, io.EOF
+}
+func (m mocStd) Write(p []byte) (n int, err error) {
+	fmt.Print(".")
+	return 0, io.EOF
+}
+func (m mocStd) Close() error {
+	fmt.Print("#")
+	return nil
+}
+func mockStdout() mocStd {
+	return mocStd(0)
+}
+
 //Execute Execute command
 func (c *Command) Execute(cmd string) (int, error) {
 	if !c.run {
+		return 0, errors.New("Shell Closed")
+	}
+	if c.stdin == nil {
 		return 0, errors.New("Shell Closed")
 	}
 	return c.stdin.Write([]byte(cmd))
@@ -148,4 +183,9 @@ func (c *Command) Error() error {
 //IsRun error
 func (c *Command) IsRun() bool {
 	return c.run
+}
+
+//IsRunning error
+func (c *Command) IsRunning() bool {
+	return c.running
 }

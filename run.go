@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -162,7 +163,10 @@ func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string) *Consola
 
 //Execute Execute command
 func (s *Consola) Execute(cmd string) (int, error) {
-	return s.cmd.Execute(cmd)
+	if s.cmd.IsRun() {
+		return s.cmd.Execute(cmd)
+	}
+	return -1, errors.New("Shell Closed")
 }
 
 //Error error
