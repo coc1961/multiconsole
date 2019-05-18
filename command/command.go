@@ -149,15 +149,15 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 type mocStd int
 
 func (m mocStd) Read(p []byte) (n int, err error) {
-	fmt.Print(".")
+	//fmt.Print(".")
 	return 0, io.EOF
 }
 func (m mocStd) Write(p []byte) (n int, err error) {
-	fmt.Print(".")
+	//fmt.Print(".")
 	return 0, io.EOF
 }
 func (m mocStd) Close() error {
-	fmt.Print("#")
+	//fmt.Print("#")
 	return nil
 }
 func mockStdout() mocStd {
