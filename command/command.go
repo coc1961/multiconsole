@@ -2,6 +2,7 @@ package command
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"sync"
@@ -33,9 +34,10 @@ func (c *Command) Stop() error {
 	c.stderr = mockStdout()
 	c.stdin = mockStdout()
 
+	//ret := c.cmd.Process.Signal(os.Interrupt)
 	ret := c.cmd.Process.Kill()
 	for c.IsRunning() {
-		//fmt.Print(".")
+		fmt.Print(".")
 		<-time.After(time.Millisecond * 200)
 	}
 	return ret
