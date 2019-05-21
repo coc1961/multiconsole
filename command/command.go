@@ -75,7 +75,7 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 				}
 				if cont > 0 {
 					b1 := make([]byte, cont)
-					copy(b1, b)
+					copy(b1, b[0:cont])
 					wgl.Add(1)
 					go func(b []byte) {
 						select {
