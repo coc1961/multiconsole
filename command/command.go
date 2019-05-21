@@ -34,6 +34,7 @@ func (c *Command) Stop() error {
 	c.stderr = mockStdout()
 	c.stdin = mockStdout()
 
+	//ret := c.cmd.Process.Signal(os.Interrupt)
 	ret := c.cmd.Process.Kill()
 	for c.IsRunning() {
 		fmt.Print(".")
@@ -46,14 +47,15 @@ func (c *Command) Stop() error {
 func (c *Command) Start() (chan []byte, chan []byte) {
 	c.run = true
 	c.running = true
-	out0 := make(chan []byte, 1)
-	out1 := make(chan []byte, 1)
+	out0 := make(chan []byte, 10000)
+	out1 := make(chan []byte, 10000)
 	go func(c *Command) {
 		cmd := exec.Command("sh", "-c", "/bin/sh", "--login")
 		c.stdout, _ = cmd.StdoutPipe()
 		c.stderr, _ = cmd.StderrPipe()
 		c.stdin, _ = cmd.StdinPipe()
 		c.cmd = cmd
+
 		defer func(stdout io.ReadCloser, stderr io.ReadCloser, stdin io.WriteCloser) {
 			stdout.Close()
 			stderr.Close()
@@ -63,7 +65,7 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 
-		go func(c *Command, out chan<- []byte) {
+		go func(c *Command, out chan []byte) {
 			wgl := sync.WaitGroup{}
 			for c.run {
 				b := make([]byte, 10000)
@@ -79,8 +81,10 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 						select {
 						case out <- b:
 							wgl.Done()
+							return
 						case <-time.After(10 * time.Millisecond):
 							wgl.Done()
+							return
 						}
 					}(b1)
 				}
@@ -91,7 +95,7 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 			//fmt.Print("SalgoHilo1 ")
 		}(c, out0)
 
-		go func(c *Command, out chan<- []byte) {
+		go func(c *Command, out chan []byte) {
 			wgl := sync.WaitGroup{}
 			for c.run {
 				b := make([]byte, 10000)
