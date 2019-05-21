@@ -194,44 +194,45 @@ func (s *Consola) write(b []byte) (int, error) {
 	return s.v.Write(b)
 }
 
-func (s *Consola) startCommand() {
-	go func(s *Consola) {
-		s.v.Autoscroll = true
-		s.running = true
+func (s *Consola) read() {
+	s.v.Autoscroll = true
+	s.running = true
 
-		comm := s.cmd
+	comm := s.cmd
 
-		out0, out1 := comm.Start()
-		for s.cmd.IsRun() {
-			select {
-			case b, ok := <-out0:
-				if !ok {
-					break
-				}
-				_, err := s.write(b)
-				if err != nil {
-					break
-				}
-				termbox.Interrupt()
-			case b, ok := <-out1:
-				if !ok {
-					break
-				}
-				_, err := s.write(b)
-				if err != nil {
-					break
-				}
-				termbox.Interrupt()
-			case <-time.After(100 * time.Millisecond):
-				termbox.Interrupt()
-				//fmt.Print(s.cmd.IsRun(), " ")
+	out0, out1 := comm.Start()
+	for s.cmd.IsRun() {
+		select {
+		case b, ok := <-out0:
+			if !ok {
+				break
 			}
+			_, err := s.write(b)
+			if err != nil {
+				break
+			}
+			termbox.Interrupt()
+		case b, ok := <-out1:
+			if !ok {
+				break
+			}
+			_, err := s.write(b)
+			if err != nil {
+				break
+			}
+			termbox.Interrupt()
+		case <-time.After(100 * time.Millisecond):
+			termbox.Interrupt()
+			//fmt.Print(s.cmd.IsRun(), " ")
 		}
-		s.running = false
-		s.v.Clear()
-		//fmt.Print("SALGO0 ")
-	}(s)
+	}
+	s.running = false
+	s.v.Clear()
+	//fmt.Print("SALGO0 ")
+}
 
+func (s *Consola) startCommand() {
+	go s.read()
 }
 
 //Start start

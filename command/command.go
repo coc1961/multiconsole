@@ -16,8 +16,6 @@ func NewCommand(cmd *string) *Command {
 
 //Command dos shell
 type Command struct {
-	stdout  io.ReadCloser
-	stderr  io.ReadCloser
 	stdin   io.WriteCloser
 	cancel  context.CancelFunc
 	command *string
@@ -49,16 +47,16 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 		ctx, cancel := context.WithCancel(context.Background())
 		c.cancel = cancel
 		cmd := exec.CommandContext(ctx, "sh", "-c", "/bin/sh", "--login")
-		c.stdout, _ = cmd.StdoutPipe()
-		c.stderr, _ = cmd.StderrPipe()
+		stdout, _ := cmd.StdoutPipe()
+		stderr, _ := cmd.StderrPipe()
 		c.stdin, _ = cmd.StdinPipe()
 		c.cmd = cmd
 
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 
-		go c.read(&wg, c.stdout, out0)
-		go c.read(&wg, c.stderr, out1)
+		go c.read(&wg, stdout, out0)
+		go c.read(&wg, stderr, out1)
 
 		c.err = cmd.Start()
 		if c.err != nil {
