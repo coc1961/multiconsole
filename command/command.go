@@ -31,12 +31,6 @@ type Command struct {
 func (c *Command) Stop() error {
 	c.run = false
 	c.command = nil
-	c.stdout = mockStdout()
-	c.stderr = mockStdout()
-	c.stdin = mockStdout()
-
-	//ret := c.cmd.Process.Signal(os.Interrupt)
-	//ret := c.cmd.Process.Kill()
 	c.cancel()
 	for c.IsRunning() {
 		//fmt.Print(".")
@@ -60,72 +54,11 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 		c.stdin, _ = cmd.StdinPipe()
 		c.cmd = cmd
 
-		defer func(stdout io.ReadCloser, stderr io.ReadCloser, stdin io.WriteCloser) {
-			stdout.Close()
-			stderr.Close()
-			stdin.Close()
-		}(c.stdout, c.stderr, c.stdin)
-
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 
-		go func(c *Command, out chan []byte) {
-			wgl := sync.WaitGroup{}
-			for c.run {
-				b := make([]byte, 10000)
-				cont, err := c.stdout.Read(b)
-				if err != nil {
-					break
-				}
-				if cont > 0 {
-					b1 := make([]byte, cont)
-					copy(b1, b[0:cont])
-					wgl.Add(1)
-					go func(b []byte) {
-						select {
-						case out <- b:
-							wgl.Done()
-							return
-						case <-time.After(10 * time.Millisecond):
-							wgl.Done()
-							return
-						}
-					}(b1)
-				}
-			}
-			wg.Done()
-			wgl.Wait()
-			close(out)
-			//fmt.Print("SalgoHilo1 ")
-		}(c, out0)
-
-		go func(c *Command, out chan []byte) {
-			wgl := sync.WaitGroup{}
-			for c.run {
-				b := make([]byte, 10000)
-				cont, err := c.stderr.Read(b)
-				if err != nil {
-					break
-				}
-				if cont > 0 {
-					b1 := make([]byte, cont)
-					copy(b1, b[0:cont])
-					wgl.Add(1)
-					go func(b []byte) {
-						select {
-						case out <- b:
-							wgl.Done()
-						case <-time.After(10 * time.Millisecond):
-							wgl.Done()
-						}
-					}(b1)
-				}
-			}
-			wg.Done()
-			wgl.Wait()
-			close(out)
-			//fmt.Print("SalgoHilo2 ")
-		}(c, out1)
+		go c.read(&wg, c.stdout, out0)
+		go c.read(&wg, c.stderr, out1)
 
 		c.err = cmd.Start()
 		if c.err != nil {
@@ -154,22 +87,34 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 	return out0, out1
 }
 
-type mocStd int
-
-func (m mocStd) Read(p []byte) (n int, err error) {
-	//fmt.Print(".")
-	return 0, io.EOF
-}
-func (m mocStd) Write(p []byte) (n int, err error) {
-	//fmt.Print(".")
-	return 0, io.EOF
-}
-func (m mocStd) Close() error {
-	//fmt.Print("#")
-	return nil
-}
-func mockStdout() mocStd {
-	return mocStd(0)
+func (c *Command) read(wg *sync.WaitGroup, std io.ReadCloser, out chan []byte) {
+	wgl := sync.WaitGroup{}
+	for c.run {
+		b := make([]byte, 10000)
+		cont, err := std.Read(b)
+		if err != nil {
+			break
+		}
+		if cont > 0 {
+			b1 := make([]byte, cont)
+			copy(b1, b[0:cont])
+			wgl.Add(1)
+			go func(b []byte) {
+				select {
+				case out <- b:
+					wgl.Done()
+					return
+				case <-time.After(10 * time.Millisecond):
+					wgl.Done()
+					return
+				}
+			}(b1)
+		}
+	}
+	wg.Done()
+	wgl.Wait()
+	close(out)
+	//fmt.Print("SalgoHilo1 ")
 }
 
 //Execute Execute command
