@@ -1,8 +1,8 @@
 package command
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"io"
 	"os/exec"
 	"sync"
@@ -19,6 +19,7 @@ type Command struct {
 	stdout  io.ReadCloser
 	stderr  io.ReadCloser
 	stdin   io.WriteCloser
+	cancel  context.CancelFunc
 	command *string
 	cmd     *exec.Cmd
 	err     error
@@ -35,12 +36,13 @@ func (c *Command) Stop() error {
 	c.stdin = mockStdout()
 
 	//ret := c.cmd.Process.Signal(os.Interrupt)
-	ret := c.cmd.Process.Kill()
+	//ret := c.cmd.Process.Kill()
+	c.cancel()
 	for c.IsRunning() {
-		fmt.Print(".")
+		//fmt.Print(".")
 		<-time.After(time.Millisecond * 200)
 	}
-	return ret
+	return nil
 }
 
 //Start start
@@ -50,7 +52,9 @@ func (c *Command) Start() (chan []byte, chan []byte) {
 	out0 := make(chan []byte, 10000)
 	out1 := make(chan []byte, 10000)
 	go func(c *Command) {
-		cmd := exec.Command("sh", "-c", "/bin/sh", "--login")
+		ctx, cancel := context.WithCancel(context.Background())
+		c.cancel = cancel
+		cmd := exec.CommandContext(ctx, "sh", "-c", "/bin/sh", "--login")
 		c.stdout, _ = cmd.StdoutPipe()
 		c.stderr, _ = cmd.StderrPipe()
 		c.stdin, _ = cmd.StdinPipe()

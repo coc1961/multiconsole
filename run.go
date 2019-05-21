@@ -154,6 +154,7 @@ type Consola struct {
 	y0      int
 	x1      int
 	y1      int
+	running bool
 }
 
 //NewConsola NewConsola
@@ -196,6 +197,7 @@ func (s *Consola) write(b []byte) (int, error) {
 func (s *Consola) startCommand() {
 	go func(s *Consola) {
 		s.v.Autoscroll = true
+		s.running = true
 
 		comm := s.cmd
 
@@ -222,8 +224,10 @@ func (s *Consola) startCommand() {
 				termbox.Interrupt()
 			case <-time.After(100 * time.Millisecond):
 				termbox.Interrupt()
+				//fmt.Print(s.cmd.IsRun(), " ")
 			}
 		}
+		s.running = false
 		s.v.Clear()
 		//fmt.Print("SALGO0 ")
 	}(s)
@@ -285,12 +289,15 @@ func (s *Consola) Start() error {
 			s.Execute(iv.Buffer())
 		} else {
 			s.Stop()
-			time.Sleep(300 * time.Millisecond)
-			s.Start()
-			if s.Error() != nil {
-				fmt.Println(s.Error())
-			}
-
+			go func() {
+				for s.running {
+					time.Sleep(100 * time.Millisecond)
+				}
+				s.Start()
+				if s.Error() != nil {
+					fmt.Println(s.Error())
+				}
+			}()
 		}
 
 		if e != nil {
