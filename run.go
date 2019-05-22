@@ -20,9 +20,18 @@ func main() {
 
 //NewConsoleView NewConsoleView
 func NewConsoleView(cmd []string) *ConsoleView {
-	cv := ConsoleView{pri: true, current: 2, maxConsole: 4, cmd: cmd}
+	commands := make(map[string]Commands)
+	commands["exit"] = kill
+	commands["cls"] = cls
+	commands["clear"] = cls
+	commands["default"] = execute
+
+	cv := ConsoleView{pri: true, current: 2, maxConsole: 4, cmd: cmd, commands: commands}
 	return &cv
 }
+
+//Commands Commands
+type Commands func(s *Consola, cmd string)
 
 //ConsoleView ConsoleView
 type ConsoleView struct {
@@ -31,6 +40,7 @@ type ConsoleView struct {
 	current    int
 	g          *c.Gui
 	maxConsole int
+	commands   map[string]Commands
 }
 
 //Start start
@@ -96,7 +106,7 @@ func (cv *ConsoleView) layout(g *c.Gui) error {
 		if len(cv.cmd) > 3 {
 			cmd = &cv.cmd[3]
 		}
-		cmd1 := NewConsola(g, "cmd4", (maxX/2)+1, (maxY/2)+1, maxX-1, maxY-2, cmd)
+		cmd1 := NewConsola(g, "cmd4", (maxX/2)+1, (maxY/2)+1, maxX-1, maxY-2, cmd, cv.commands)
 		err := cmd1.Start()
 		if err != nil {
 			fmt.Println(err)
@@ -107,7 +117,7 @@ func (cv *ConsoleView) layout(g *c.Gui) error {
 		if len(cv.cmd) > 2 {
 			cmd = &cv.cmd[2]
 		}
-		cmd1 := NewConsola(g, "cmd3", 0, (maxY/2)+1, (maxX/2)-1, maxY-2, cmd)
+		cmd1 := NewConsola(g, "cmd3", 0, (maxY/2)+1, (maxX/2)-1, maxY-2, cmd, cv.commands)
 		err := cmd1.Start()
 		if err != nil {
 			fmt.Println(err)
@@ -118,7 +128,7 @@ func (cv *ConsoleView) layout(g *c.Gui) error {
 		if len(cv.cmd) > 1 {
 			cmd = &cv.cmd[1]
 		}
-		cmd1 := NewConsola(g, "cmd2", (maxX/2)+1, 2, maxX-1, maxY/2, cmd)
+		cmd1 := NewConsola(g, "cmd2", (maxX/2)+1, 2, maxX-1, maxY/2, cmd, cv.commands)
 		err := cmd1.Start()
 		if err != nil {
 			fmt.Println(err)
@@ -129,7 +139,7 @@ func (cv *ConsoleView) layout(g *c.Gui) error {
 		if len(cv.cmd) > 0 {
 			cmd = &cv.cmd[0]
 		}
-		cmd1 := NewConsola(g, "cmd1", 0, 2, (maxX/2)-1, maxY/2, cmd)
+		cmd1 := NewConsola(g, "cmd1", 0, 2, (maxX/2)-1, maxY/2, cmd, cv.commands)
 		err := cmd1.Start()
 		if err != nil {
 			fmt.Println(err)
@@ -145,20 +155,22 @@ func (cv *ConsoleView) quit(g *c.Gui, v *c.View) error {
 
 //Consola consola
 type Consola struct {
-	command *string
-	cmd     *command.Command
-	g       *c.Gui
-	v       *c.View
-	name    string
-	x0      int
-	y0      int
-	x1      int
-	y1      int
+	command  *string
+	cmd      *command.Command
+	g        *c.Gui
+	v        *c.View
+	name     string
+	x0       int
+	y0       int
+	x1       int
+	y1       int
+	running  bool
+	commands map[string]Commands
 }
 
 //NewConsola NewConsola
-func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string) *Consola {
-	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, command: cmd}
+func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string, commands map[string]Commands) *Consola {
+	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, command: cmd, commands: commands}
 }
 
 //Execute Execute command
@@ -193,41 +205,45 @@ func (s *Consola) write(b []byte) (int, error) {
 	return s.v.Write(b)
 }
 
-func (s *Consola) startCommand() {
-	go func(s *Consola) {
-		s.v.Autoscroll = true
+func (s *Consola) read() {
+	s.v.Autoscroll = true
+	s.running = true
 
-		comm := s.cmd
+	comm := s.cmd
 
-		out0, out1 := comm.Start()
-		for s.cmd.IsRun() {
-			select {
-			case b, ok := <-out0:
-				if !ok {
-					break
-				}
-				_, err := s.write(b)
-				if err != nil {
-					break
-				}
-				termbox.Interrupt()
-			case b, ok := <-out1:
-				if !ok {
-					break
-				}
-				_, err := s.write(b)
-				if err != nil {
-					break
-				}
-				termbox.Interrupt()
-			case <-time.After(100 * time.Millisecond):
-				termbox.Interrupt()
+	out0, out1 := comm.Start()
+	for s.cmd.IsRun() {
+		select {
+		case b, ok := <-out0:
+			if !ok {
+				break
 			}
+			_, err := s.write(b)
+			if err != nil {
+				break
+			}
+			termbox.Interrupt()
+		case b, ok := <-out1:
+			if !ok {
+				break
+			}
+			_, err := s.write(b)
+			if err != nil {
+				break
+			}
+			termbox.Interrupt()
+		case <-time.After(100 * time.Millisecond):
+			termbox.Interrupt()
+			//fmt.Print(s.cmd.IsRun(), " ")
 		}
-		s.v.Clear()
-		//fmt.Print("SALGO0 ")
-	}(s)
+	}
+	s.running = false
+	s.v.Clear()
+	//fmt.Print("SALGO0 ")
+}
 
+func (s *Consola) startCommand() {
+	go s.read()
 }
 
 //Start start
@@ -245,6 +261,9 @@ func (s *Consola) Start() error {
 
 	g.SetCurrentView(s.name + "View")
 	if err := g.DeleteView(s.name + "View"); err != nil && err != c.ErrUnknownView {
+		return err
+	}
+	if err := g.DeleteView(s.name + "Input"); err != nil && err != c.ErrUnknownView {
 		return err
 	}
 	if v, err := g.SetView(s.name+"View", s.x0, s.y0, s.x1, s.y1-3); err != nil {
@@ -281,17 +300,12 @@ func (s *Consola) Start() error {
 		}
 		_, e = fmt.Fprint(ov, iv.Buffer())
 
-		if strings.Trim(iv.Buffer(), " ") != "exit\n" {
-			s.Execute(iv.Buffer())
-		} else {
-			s.Stop()
-			time.Sleep(300 * time.Millisecond)
-			s.Start()
-			if s.Error() != nil {
-				fmt.Println(s.Error())
-			}
-
+		tmp := strings.Replace(iv.Buffer(), "\n", "", -1)
+		c := s.commands[tmp]
+		if c == nil {
+			c = s.commands["default"]
 		}
+		c(s, tmp)
 
 		if e != nil {
 			log.Println("Cannot print to output view:", e)
@@ -311,4 +325,23 @@ func (s *Consola) Start() error {
 	}
 
 	return s.Error()
+}
+
+func execute(s *Consola, cmd string) {
+	s.Execute(cmd + "\n")
+}
+func cls(s *Consola, cmd string) {
+	s.v.Clear()
+}
+func kill(s *Consola, cmd string) {
+	s.Stop()
+	go func() {
+		for s.running {
+			time.Sleep(100 * time.Millisecond)
+		}
+		s.Start()
+		if s.Error() != nil {
+			fmt.Println(s.Error())
+		}
+	}()
 }
