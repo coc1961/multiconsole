@@ -107,6 +107,7 @@ func (c *Command) read(wg *sync.WaitGroup, std io.ReadCloser, out chan []byte) {
 					return
 				}
 			}(b1)
+			wgl.Wait()
 		}
 	}
 	wg.Done()
