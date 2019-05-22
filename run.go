@@ -22,6 +22,7 @@ func main() {
 func NewConsoleView(cmd []string) *ConsoleView {
 	commands := make(map[string]Commands)
 	commands["exit"] = kill
+	commands["kill"] = kill
 	commands["cls"] = cls
 	commands["clear"] = cls
 	commands["default"] = execute
@@ -98,7 +99,7 @@ func (cv *ConsoleView) layout(g *c.Gui) error {
 		normal := "\033[0m"
 		color := fmt.Sprintf("\033[3%d;%dm", 2, 2)
 		color1 := fmt.Sprintf("\033[3%d;%dm", 2, 7)
-		fmt.Fprintf(v, "%sMulti Consola%s - %sTab%s Cambio de Foco,  %sCtrl-c%s Salir,  %sEnter%s Ejecutar,  %sTipear exit y presionar Enter%s Interrumpe proceso de consola", color1, normal, color, normal, color, normal, color, normal, color, normal)
+		fmt.Fprintf(v, "%sMulti Consola%s - %sTab%s Cambio de Foco,  %sCtrl-c%s Salir,  %sEnter%s Ejecutar,  %sComandos %s exit,kill,cls", color1, normal, color, normal, color, normal, color, normal, color, normal)
 	}
 
 	{
@@ -175,7 +176,7 @@ func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string, commands
 
 //Execute Execute command
 func (s *Consola) Execute(cmd string) (int, error) {
-	if s.cmd.IsRun() {
+	if s.cmd.Run() {
 		return s.cmd.Execute(cmd)
 	}
 	return -1, errors.New("Shell Closed")
@@ -193,13 +194,7 @@ func (s *Consola) Stop() error {
 }
 
 func (s *Consola) write(b []byte) (int, error) {
-	go func() {
-		if r := recover(); r != nil {
-			log.Println(r)
-			return
-		}
-	}()
-	if !s.cmd.IsRun() {
+	if !s.cmd.Run() {
 		return 0, nil
 	}
 	return s.v.Write(b)
@@ -207,17 +202,19 @@ func (s *Consola) write(b []byte) (int, error) {
 
 func (s *Consola) read() {
 	s.v.Autoscroll = true
+	//s.v.FgColor = c.ColorYellow + c.AttrBold
 	s.running = true
 
 	comm := s.cmd
 
 	out0, out1 := comm.Start()
-	for s.cmd.IsRun() {
+	for s.cmd.Run() {
 		select {
 		case b, ok := <-out0:
 			if !ok {
 				break
 			}
+
 			_, err := s.write(b)
 			if err != nil {
 				break
@@ -235,6 +232,8 @@ func (s *Consola) read() {
 		case <-time.After(100 * time.Millisecond):
 			termbox.Interrupt()
 			//fmt.Print(s.cmd.IsRun(), " ")
+			//termbox.SetCell(0, 0, '█', termbox.ColorBlack, termbox.ColorCyan)
+
 		}
 	}
 	s.running = false

@@ -102,7 +102,7 @@ func (c *Command) read(wg *sync.WaitGroup, std io.ReadCloser, out chan []byte) {
 				case out <- b:
 					wgl.Done()
 					return
-				case <-time.After(10 * time.Millisecond):
+				case <-time.After(1000 * time.Millisecond):
 					wgl.Done()
 					return
 				}
@@ -132,8 +132,8 @@ func (c *Command) Error() error {
 	return c.err
 }
 
-//IsRun error
-func (c *Command) IsRun() bool {
+//Run error
+func (c *Command) Run() bool {
 	return c.run
 }
 
