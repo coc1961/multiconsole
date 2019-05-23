@@ -14,6 +14,7 @@ import (
 )
 
 func main() {
+	//termbox.SetOutputMode(termbox.Output256)
 	cv := NewConsoleView(os.Args[1:])
 	cv.Start()
 }
@@ -251,12 +252,10 @@ func (s *Consola) Start() error {
 	s.cmd = command.NewCommand(s.command)
 	s.command = nil
 
-	/*
-		if s.v != nil {
-			s.startCommand()
-			return nil
-		}
-	*/
+	if s.v != nil {
+		s.startCommand()
+		return nil
+	}
 
 	g.SetCurrentView(s.name + "View")
 	if err := g.DeleteView(s.name + "View"); err != nil && err != c.ErrUnknownView {
