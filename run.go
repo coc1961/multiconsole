@@ -10,7 +10,6 @@ import (
 
 	"github.com/coc1961/multiconsole/command"
 	c "github.com/jroimartin/gocui"
-	"github.com/nsf/termbox-go"
 )
 
 func main() {
@@ -216,11 +215,19 @@ func (s *Consola) read() {
 				break
 			}
 
+			//fmt.Print(string(b))
+
 			_, err := s.write(b)
 			if err != nil {
 				break
 			}
-			termbox.Interrupt()
+			/*
+				if l != len(b) {
+					fmt.Println("MALLLLLLLLLLLLLLLLLLL")
+				}
+			*/
+			s.g.Update(updateConsole)
+			//termbox.Interrupt()
 		case b, ok := <-out1:
 			if !ok {
 				break
@@ -229,9 +236,11 @@ func (s *Consola) read() {
 			if err != nil {
 				break
 			}
-			termbox.Interrupt()
+			s.g.Update(updateConsole)
+			//termbox.Interrupt()
 		case <-time.After(100 * time.Millisecond):
-			termbox.Interrupt()
+			s.g.Update(updateConsole)
+			//termbox.Interrupt()
 			//fmt.Print(s.cmd.IsRun(), " ")
 			//termbox.SetCell(0, 0, '█', termbox.ColorBlack, termbox.ColorCyan)
 
@@ -240,6 +249,10 @@ func (s *Consola) read() {
 	s.running = false
 	s.v.Clear()
 	//fmt.Print("SALGO0 ")
+}
+
+func updateConsole(g *c.Gui) error {
+	return nil
 }
 
 func (s *Consola) startCommand() {
