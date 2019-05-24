@@ -286,6 +286,12 @@ func (v *View) Rewind() {
 
 // draw re-draws the view's contents.
 func (v *View) draw() error {
+	defer func() {
+		//TODO COC Cocina
+		if r := recover(); r != nil {
+			//fmt.Println(r)
+		}
+	}()
 	maxX, maxY := v.Size()
 
 	if v.Wrap {

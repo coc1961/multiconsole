@@ -61,14 +61,12 @@ func (s *Consola) write(b []byte) (int, error) {
 	defer func() {
 		s.mutex.Unlock()
 	}()
-	if len(s.v.BufferLines()) > 100 {
-		termbox.Interrupt()
-		<-time.After(100 * time.Millisecond)
+	_, y := s.v.Size()
+	if len(s.v.BufferLines()) > y*100 {
 		s.v.Clear()
 	}
 	n, err := s.v.Write(b)
 	termbox.Interrupt()
-	<-time.After(100 * time.Millisecond)
 	return n, err
 }
 
