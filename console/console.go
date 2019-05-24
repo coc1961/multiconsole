@@ -10,6 +10,7 @@ import (
 
 	"github.com/coc1961/multiconsole/command"
 	c "github.com/jroimartin/gocui"
+	termbox "github.com/nsf/termbox-go"
 )
 
 //Consola consola
@@ -61,8 +62,9 @@ func (s *Consola) write(b []byte) (int, error) {
 		s.mutex.Unlock()
 	}()
 	if len(s.v.BufferLines()) > 10000 {
-		s.v.Clear()
+		termbox.Interrupt()
 		<-time.After(100 * time.Millisecond)
+		s.v.Clear()
 	}
 	return s.v.Write(b)
 }
