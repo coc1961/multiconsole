@@ -26,12 +26,12 @@ type Consola struct {
 	y1       int
 	running  bool
 	commands map[string]Commands
-	mutex    sync.Mutex
+	mutex    *sync.Mutex
 }
 
 //NewConsola NewConsola
-func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string, commands map[string]Commands) *Consola {
-	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, command: cmd, commands: commands}
+func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string, commands map[string]Commands, mutex *sync.Mutex) *Consola {
+	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, command: cmd, commands: commands, mutex: mutex}
 }
 
 //Execute Execute command
@@ -61,12 +61,15 @@ func (s *Consola) write(b []byte) (int, error) {
 	defer func() {
 		s.mutex.Unlock()
 	}()
-	if len(s.v.BufferLines()) > 10000 {
+	if len(s.v.BufferLines()) > 100 {
 		termbox.Interrupt()
 		<-time.After(100 * time.Millisecond)
 		s.v.Clear()
 	}
-	return s.v.Write(b)
+	n, err := s.v.Write(b)
+	termbox.Interrupt()
+	<-time.After(100 * time.Millisecond)
+	return n, err
 }
 
 func (s *Consola) read() {
@@ -94,7 +97,7 @@ func (s *Consola) read() {
 			}
 		case <-time.After(100 * time.Millisecond):
 		}
-		s.g.Update(s.updateConsole)
+		//s.g.Update(s.updateConsole)
 	}
 	s.running = false
 	s.v.Clear()

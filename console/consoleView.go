@@ -3,6 +3,7 @@ package console
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	c "github.com/jroimartin/gocui"
 )
@@ -10,7 +11,8 @@ import (
 //NewConsoleView NewConsoleView
 func NewConsoleView(cmd []string) *ConsoleView {
 	commands := getConsoleCommands()
-	cv := ConsoleView{pri: true, current: 2, maxConsole: 4, cmd: cmd, commands: commands}
+	mutex := &sync.Mutex{}
+	cv := ConsoleView{pri: true, current: 2, maxConsole: 4, cmd: cmd, commands: commands, mutex: mutex}
 	return &cv
 }
 
@@ -25,6 +27,7 @@ type ConsoleView struct {
 	g          *c.Gui
 	maxConsole int
 	commands   map[string]Commands
+	mutex      *sync.Mutex
 }
 
 //Start start
@@ -103,7 +106,7 @@ func newConsole(cv *ConsoleView, ind, x, y, x1, y1 int) {
 		if len(cv.cmd) > ind {
 			cmd = &cv.cmd[ind]
 		}
-		cmd1 := NewConsola(cv.g, fmt.Sprintf("cmd%d", ind+1), x, y, x1, y1, cmd, cv.commands)
+		cmd1 := NewConsola(cv.g, fmt.Sprintf("cmd%d", ind+1), x, y, x1, y1, cmd, cv.commands, cv.mutex)
 		err := cmd1.Start()
 		if err != nil {
 			fmt.Println(err)
