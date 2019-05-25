@@ -16,13 +16,16 @@ func getConsoleCommands() map[string]Commands {
 	commands["default"] = execute
 	return commands
 }
+
 func execute(s *Consola, cmd string) {
 	s.Execute(cmd + "\n")
 }
+
 func cls(s *Consola, cmd string) {
 	s.v.Clear()
 	termbox.Interrupt()
 }
+
 func kill(s *Consola, cmd string) {
 	s.Stop()
 	go func() {

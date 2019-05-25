@@ -81,7 +81,6 @@ func (cv *ConsoleView) layout(g *c.Gui) error {
 
 	maxX, maxY := g.Size()
 
-	_ = maxY
 	if v, err := g.SetView("tit", 0, 0, maxX, 2); err != nil && err != c.ErrUnknownView {
 		return err
 	} else {
