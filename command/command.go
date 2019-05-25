@@ -33,7 +33,7 @@ func (c *Command) Stop() error {
 	c.run = false
 	c.command = nil
 	c.cancel()
-	for c.IsRunning() {
+	for c.running {
 		//fmt.Print(".")
 		<-time.After(time.Millisecond * 200)
 	}
@@ -145,30 +145,20 @@ func (c *Command) Run() bool {
 	return c.run
 }
 
-//IsRunning error
-func (c *Command) IsRunning() bool {
-	return c.running
-}
-
-//History History
-func (c *Command) History() []string {
-	return c.history
-}
-
 //HistoryPrev History
 func (c *Command) HistoryPrev() string {
 	c.historyInd--
-	return c.HistoryAct()
+	return c.History()
 }
 
 //HistoryNext History
 func (c *Command) HistoryNext() string {
 	c.historyInd++
-	return c.HistoryAct()
+	return c.History()
 }
 
-//HistoryAct History
-func (c *Command) HistoryAct() string {
+//History History
+func (c *Command) History() string {
 	if c.historyInd < 0 {
 		c.historyInd = 0
 		return ""
