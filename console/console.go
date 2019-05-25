@@ -26,12 +26,12 @@ type Consola struct {
 	y1       int
 	running  bool
 	commands map[string]Commands
-	mutex    sync.Mutex
+	mutex    *sync.Mutex
 }
 
 //NewConsola NewConsola
-func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string, commands map[string]Commands) *Consola {
-	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, command: cmd, commands: commands}
+func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string, commands map[string]Commands, mutex *sync.Mutex) *Consola {
+	return &Consola{g: g, name: name, x0: x0, x1: x1, y0: y0, y1: y1, command: cmd, commands: commands, mutex: mutex}
 }
 
 //Execute Execute command
@@ -61,12 +61,13 @@ func (s *Consola) write(b []byte) (int, error) {
 	defer func() {
 		s.mutex.Unlock()
 	}()
-	if len(s.v.BufferLines()) > 10000 {
-		termbox.Interrupt()
-		<-time.After(100 * time.Millisecond)
+	_, y := s.v.Size()
+	if len(s.v.BufferLines()) > y*100 {
 		s.v.Clear()
 	}
-	return s.v.Write(b)
+	n, err := s.v.Write(b)
+	termbox.Interrupt()
+	return n, err
 }
 
 func (s *Consola) read() {
@@ -94,7 +95,7 @@ func (s *Consola) read() {
 			}
 		case <-time.After(100 * time.Millisecond):
 		}
-		s.g.Update(s.updateConsole)
+		//s.g.Update(s.updateConsole)
 	}
 	s.running = false
 	s.v.Clear()
@@ -189,6 +190,9 @@ func (s *Consola) Start() error {
 		return e
 	})
 
+	err = g.SetKeybinding(s.name+"Input", c.KeyArrowDown, c.ModNone, s.historyDown)
+	err = g.SetKeybinding(s.name+"Input", c.KeyArrowUp, c.ModNone, s.historyUp)
+
 	_, err = g.SetCurrentView(s.name + "Input")
 	if err != nil {
 		log.Println("Cannot set focus to input view:", err)
@@ -196,4 +200,17 @@ func (s *Consola) Start() error {
 	}
 
 	return s.Error()
+}
+
+func (s *Consola) historyDown(g *c.Gui, iv *c.View) error {
+	iv.Clear()
+	iv.Rewind()
+	iv.Write([]byte(s.cmd.HistoryNext()))
+	return nil
+}
+func (s *Consola) historyUp(g *c.Gui, iv *c.View) error {
+	iv.Clear()
+	iv.Rewind()
+	iv.Write([]byte(s.cmd.HistoryPrev()))
+	return nil
 }
