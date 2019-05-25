@@ -158,24 +158,24 @@ func (c *Command) History() []string {
 //HistoryPrev History
 func (c *Command) HistoryPrev() string {
 	c.historyInd--
-	if c.historyInd < 0 {
-		c.historyInd = 0
-	}
 	return c.HistoryAct()
 }
 
 //HistoryNext History
 func (c *Command) HistoryNext() string {
 	c.historyInd++
-	if c.historyInd > len(c.history)-1 {
-		c.historyInd = len(c.history) - 1
-	}
 	return c.HistoryAct()
 }
 
 //HistoryAct History
 func (c *Command) HistoryAct() string {
-	if c.historyInd < 0 || c.historyInd > len(c.history)-1 {
+	if c.historyInd < 0 {
+		c.historyInd = 0
+		return ""
+	} else if c.historyInd > len(c.history)-1 {
+		c.historyInd = len(c.history) - 1
+	}
+	if c.historyInd < 0 {
 		return ""
 	}
 	return c.history[c.historyInd]
