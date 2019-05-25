@@ -113,8 +113,8 @@ func (c *Command) read(wg *sync.WaitGroup, std io.ReadCloser, out chan []byte) {
 			wgl.Wait()
 		}
 	}
-	wg.Done()
 	wgl.Wait()
+	wg.Done()
 	close(out)
 	//fmt.Print("SalgoHilo1 ")
 }
