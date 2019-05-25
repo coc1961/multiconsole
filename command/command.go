@@ -140,8 +140,8 @@ func (c *Command) Error() error {
 	return c.err
 }
 
-//Run error
-func (c *Command) Run() bool {
+//IsRunning error
+func (c *Command) IsRunning() bool {
 	return c.run
 }
 

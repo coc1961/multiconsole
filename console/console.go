@@ -36,7 +36,7 @@ func NewConsola(g *c.Gui, name string, x0, y0, x1, y1 int, cmd *string, commands
 
 //Execute Execute command
 func (s *Consola) Execute(cmd string) (int, error) {
-	if s.cmd.Run() {
+	if s.cmd.IsRunning() {
 		return s.cmd.Execute(cmd)
 	}
 	return -1, errors.New("Shell Closed")
@@ -54,7 +54,7 @@ func (s *Consola) Stop() error {
 }
 
 func (s *Consola) write(b []byte) (int, error) {
-	if !s.cmd.Run() {
+	if !s.cmd.IsRunning() {
 		return 0, nil
 	}
 	s.mutex.Lock()
@@ -77,7 +77,7 @@ func (s *Consola) read() {
 	comm := s.cmd
 
 	out0, out1 := comm.Start()
-	for s.cmd.Run() {
+	for s.cmd.IsRunning() {
 		select {
 		case b, ok := <-out0:
 			if !ok {
