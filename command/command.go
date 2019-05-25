@@ -5,24 +5,27 @@ import (
 	"errors"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
 
 //NewCommand NewCommand
 func NewCommand(cmd *string) *Command {
-	return &Command{command: cmd}
+	return &Command{command: cmd, history: make([]string, 0)}
 }
 
 //Command dos shell
 type Command struct {
-	stdin   io.WriteCloser
-	cancel  context.CancelFunc
-	command *string
-	cmd     *exec.Cmd
-	err     error
-	run     bool
-	running bool
+	stdin      io.WriteCloser
+	cancel     context.CancelFunc
+	command    *string
+	cmd        *exec.Cmd
+	err        error
+	run        bool
+	running    bool
+	history    []string
+	historyInd int
 }
 
 //Stop stop
@@ -124,6 +127,11 @@ func (c *Command) Execute(cmd string) (int, error) {
 	if c.stdin == nil {
 		return 0, errors.New("Shell Closed")
 	}
+	hCmd := strings.Replace(cmd, "\n", "", -1)
+	if hCmd != c.HistoryLast() {
+		c.history = append(c.history, hCmd)
+	}
+	c.historyInd = len(c.history)
 	return c.stdin.Write([]byte(cmd))
 }
 
@@ -140,4 +148,44 @@ func (c *Command) Run() bool {
 //IsRunning error
 func (c *Command) IsRunning() bool {
 	return c.running
+}
+
+//History History
+func (c *Command) History() []string {
+	return c.history
+}
+
+//HistoryPrev History
+func (c *Command) HistoryPrev() string {
+	c.historyInd--
+	if c.historyInd < 0 {
+		c.historyInd = 0
+	}
+	return c.HistoryAct()
+}
+
+//HistoryNext History
+func (c *Command) HistoryNext() string {
+	c.historyInd++
+	if c.historyInd > len(c.history)-1 {
+		c.historyInd = len(c.history) - 1
+	}
+	return c.HistoryAct()
+}
+
+//HistoryAct History
+func (c *Command) HistoryAct() string {
+	if c.historyInd < 0 || c.historyInd > len(c.history)-1 {
+		return ""
+	}
+	return c.history[c.historyInd]
+}
+
+//HistoryLast History
+func (c *Command) HistoryLast() string {
+	l := len(c.history)
+	if l == 0 {
+		return ""
+	}
+	return c.history[l-1]
 }

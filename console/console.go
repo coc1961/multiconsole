@@ -190,6 +190,9 @@ func (s *Consola) Start() error {
 		return e
 	})
 
+	err = g.SetKeybinding(s.name+"Input", c.KeyArrowDown, c.ModNone, s.historyDown)
+	err = g.SetKeybinding(s.name+"Input", c.KeyArrowUp, c.ModNone, s.historyUp)
+
 	_, err = g.SetCurrentView(s.name + "Input")
 	if err != nil {
 		log.Println("Cannot set focus to input view:", err)
@@ -197,4 +200,17 @@ func (s *Consola) Start() error {
 	}
 
 	return s.Error()
+}
+
+func (s *Consola) historyDown(g *c.Gui, iv *c.View) error {
+	iv.Clear()
+	iv.Rewind()
+	iv.Write([]byte(s.cmd.HistoryNext()))
+	return nil
+}
+func (s *Consola) historyUp(g *c.Gui, iv *c.View) error {
+	iv.Clear()
+	iv.Rewind()
+	iv.Write([]byte(s.cmd.HistoryPrev()))
+	return nil
 }
