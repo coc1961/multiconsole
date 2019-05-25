@@ -33,7 +33,7 @@ func (c *Command) Stop() error {
 	c.run = false
 	c.command = nil
 	c.cancel()
-	for c.IsRunning() {
+	for c.running {
 		//fmt.Print(".")
 		<-time.After(time.Millisecond * 200)
 	}
@@ -113,8 +113,8 @@ func (c *Command) read(wg *sync.WaitGroup, std io.ReadCloser, out chan []byte) {
 			wgl.Wait()
 		}
 	}
-	wg.Done()
 	wgl.Wait()
+	wg.Done()
 	close(out)
 	//fmt.Print("SalgoHilo1 ")
 }
@@ -140,42 +140,32 @@ func (c *Command) Error() error {
 	return c.err
 }
 
-//Run error
-func (c *Command) Run() bool {
-	return c.run
-}
-
 //IsRunning error
 func (c *Command) IsRunning() bool {
-	return c.running
-}
-
-//History History
-func (c *Command) History() []string {
-	return c.history
+	return c.run
 }
 
 //HistoryPrev History
 func (c *Command) HistoryPrev() string {
 	c.historyInd--
-	if c.historyInd < 0 {
-		c.historyInd = 0
-	}
-	return c.HistoryAct()
+	return c.History()
 }
 
 //HistoryNext History
 func (c *Command) HistoryNext() string {
 	c.historyInd++
-	if c.historyInd > len(c.history)-1 {
-		c.historyInd = len(c.history) - 1
-	}
-	return c.HistoryAct()
+	return c.History()
 }
 
-//HistoryAct History
-func (c *Command) HistoryAct() string {
-	if c.historyInd < 0 || c.historyInd > len(c.history)-1 {
+//History History
+func (c *Command) History() string {
+	if c.historyInd < 0 {
+		c.historyInd = 0
+		return ""
+	} else if c.historyInd > len(c.history)-1 {
+		c.historyInd = len(c.history) - 1
+	}
+	if c.historyInd < 0 {
 		return ""
 	}
 	return c.history[c.historyInd]
