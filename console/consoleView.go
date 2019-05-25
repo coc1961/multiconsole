@@ -89,7 +89,7 @@ func (cv *ConsoleView) layout(g *c.Gui) error {
 		normal := "\033[0m"
 		color := fmt.Sprintf("\033[3%d;%dm", 2, 2)
 		color1 := fmt.Sprintf("\033[3%d;%dm", 2, 7)
-		fmt.Fprintf(v, "%sMulti Consola%s - %sTab%s Cambio de Foco,  %sCtrl-c%s Salir,  %sEnter%s Ejecutar,  %sComandos %s exit,kill,cls", color1, normal, color, normal, color, normal, color, normal, color, normal)
+		fmt.Fprintf(v, "%sMulti Consola%s - %sTab%s Cambio de Foco,  %sCtrl-c%s Salir,  %sEnter%s Ejecutar,  %sComandos%s exit,kill,cls", color1, normal, color, normal, color, normal, color, normal, color, normal)
 	}
 
 	newConsole(cv, 3, (maxX/2)+1, (maxY/2)+1, maxX-1, maxY-2)

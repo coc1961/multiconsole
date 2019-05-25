@@ -120,13 +120,11 @@ func (s *Consola) Start() error {
 	s.cmd = command.NewCommand(s.command)
 	s.command = nil
 
-	/*
-		if s.v != nil {
-			s.v.Clear()
-			s.startCommand()
-			return nil
-		}
-	*/
+	if s.v != nil {
+		s.v.Clear()
+		s.startCommand()
+		return nil
+	}
 
 	g.SetCurrentView(s.name + "View")
 	if err := g.DeleteView(s.name + "View"); err != nil && err != c.ErrUnknownView {
@@ -162,34 +160,7 @@ func (s *Consola) Start() error {
 	}
 
 	// Make the enter key copy the input to the output.
-	err = g.SetKeybinding(s.name+"Input", c.KeyEnter, c.ModNone, func(g *c.Gui, iv *c.View) error {
-		iv.Rewind()
-
-		ov, e := g.View(s.name + "View")
-		if e != nil {
-			log.Println("Cannot get output view:", e)
-			return e
-		}
-		_, e = fmt.Fprint(ov, iv.Buffer())
-
-		tmp := strings.Replace(iv.Buffer(), "\n", "", -1)
-		c := s.commands[tmp]
-		if c == nil {
-			c = s.commands["default"]
-		}
-		c(s, tmp)
-
-		if e != nil {
-			log.Println("Cannot print to output view:", e)
-		}
-		iv.Clear()
-		e = iv.SetCursor(0, 0)
-		if e != nil {
-			log.Println("Failed to set cursor:", e)
-		}
-		return e
-	})
-
+	err = g.SetKeybinding(s.name+"Input", c.KeyEnter, c.ModNone, s.execute)
 	err = g.SetKeybinding(s.name+"Input", c.KeyArrowDown, c.ModNone, s.historyDown)
 	err = g.SetKeybinding(s.name+"Input", c.KeyArrowUp, c.ModNone, s.historyUp)
 
@@ -200,6 +171,34 @@ func (s *Consola) Start() error {
 	}
 
 	return s.Error()
+}
+
+func (s *Consola) execute(g *c.Gui, iv *c.View) error {
+	iv.Rewind()
+
+	ov, e := g.View(s.name + "View")
+	if e != nil {
+		log.Println("Cannot get output view:", e)
+		return e
+	}
+	_, e = fmt.Fprint(ov, iv.Buffer())
+
+	tmp := strings.Replace(iv.Buffer(), "\n", "", -1)
+	c := s.commands[tmp]
+	if c == nil {
+		c = s.commands["default"]
+	}
+	c(s, tmp)
+
+	if e != nil {
+		log.Println("Cannot print to output view:", e)
+	}
+	iv.Clear()
+	e = iv.SetCursor(0, 0)
+	if e != nil {
+		log.Println("Failed to set cursor:", e)
+	}
+	return e
 }
 
 func (s *Consola) historyDown(g *c.Gui, iv *c.View) error {
