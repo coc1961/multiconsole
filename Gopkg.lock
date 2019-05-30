@@ -2,14 +2,6 @@
 
 
 [[projects]]
-  digest = "1:114ecad51af93a73ae6781fd0d0bc28e52b433c852b84ab4b4c109c15e6c6b6d"
-  name = "github.com/jroimartin/gocui"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "c055c87ae801372cd74a0839b972db4f7697ae5f"
-  version = "v0.4.0"
-
-[[projects]]
   digest = "1:0356f3312c9bd1cbeda81505b7fd437501d8e778ab66998ef69f00d7f9b3a0d7"
   name = "github.com/mattn/go-runewidth"
   packages = ["."]
@@ -28,9 +20,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  input-imports = [
-    "github.com/jroimartin/gocui",
-    "github.com/nsf/termbox-go",
-  ]
+  input-imports = ["github.com/nsf/termbox-go"]
   solver-name = "gps-cdcl"
   solver-version = 1

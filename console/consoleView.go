@@ -5,7 +5,7 @@ import (
 	"log"
 	"sync"
 
-	c "github.com/jroimartin/gocui"
+	c "github.com/coc1961/multiconsole/third_party/jroimartin/gocui"
 )
 
 //NewConsoleView NewConsoleView
